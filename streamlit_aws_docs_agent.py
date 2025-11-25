@@ -5,10 +5,21 @@ A web application that uses the AWS Documentation MCP Server to answer
 questions about AWS services and documentation.
 """
 
+import os
 import streamlit as st
 from mcp import StdioServerParameters, stdio_client
 from strands import Agent
 from strands.tools.mcp import MCPClient
+
+# Load AWS credentials from Streamlit secrets
+if "aws_access_key_id" in st.secrets:
+    os.environ["AWS_ACCESS_KEY_ID"] = st.secrets["aws_access_key_id"]
+if "aws_secret_access_key" in st.secrets:
+    os.environ["AWS_SECRET_ACCESS_KEY"] = st.secrets["aws_secret_access_key"]
+if "aws_default_region" in st.secrets:
+    os.environ["AWS_DEFAULT_REGION"] = st.secrets["aws_default_region"]
+else:
+    os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
 
 # ============================================================================
 # PAGE CONFIGURATION
@@ -141,6 +152,31 @@ with st.sidebar:
 # Initialize agent if not already done
 if not st.session_state.agent_ready:
     with st.spinner("Initializing AWS Documentation Agent..."):
+        # Check for AWS credentials
+        if not os.environ.get("AWS_ACCESS_KEY_ID"):
+            st.error("❌ AWS credentials not found!")
+            st.warning("""
+            **To deploy on Streamlit Cloud:**
+            1. Go to your app settings (⋯ menu)
+            2. Click "Secrets"
+            3. Add these secrets:
+            ```
+            aws_access_key_id = "your-access-key"
+            aws_secret_access_key = "your-secret-key"
+            aws_default_region = "us-east-1"
+            ```
+            
+            **To run locally:**
+            Set environment variables:
+            ```bash
+            export AWS_ACCESS_KEY_ID="your-key"
+            export AWS_SECRET_ACCESS_KEY="your-secret"
+            export AWS_DEFAULT_REGION="us-east-1"
+            streamlit run streamlit_aws_docs_agent.py
+            ```
+            """)
+            st.stop()
+        
         agent, result = initialize_agent()
         if agent:
             st.session_state.agent = agent
@@ -153,6 +189,7 @@ if not st.session_state.agent_ready:
             1. `uvx` is installed: `brew install uv`
             2. You have internet connection
             3. AWS Documentation MCP Server is available
+            4. AWS credentials are properly configured
             """)
             st.stop()
 
